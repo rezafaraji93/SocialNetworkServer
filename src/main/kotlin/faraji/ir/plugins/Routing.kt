@@ -1,11 +1,9 @@
 package faraji.ir.plugins
 
 import faraji.ir.data.repository.follow.FollowRepository
+import faraji.ir.data.repository.post.PostRepository
 import faraji.ir.data.repository.user.UserRepository
-import faraji.ir.routes.createUserRoute
-import faraji.ir.routes.followUser
-import faraji.ir.routes.login
-import faraji.ir.routes.unfollowUser
+import faraji.ir.routes.*
 import io.ktor.routing.*
 import io.ktor.http.*
 import io.ktor.content.*
@@ -20,6 +18,7 @@ fun Application.configureRouting() {
 
     val userRepository: UserRepository by inject()
     val followRepository: FollowRepository by inject()
+    val postRepository: PostRepository by inject()
 
     routing {
 
@@ -30,5 +29,8 @@ fun Application.configureRouting() {
         //Following routes
         followUser(followRepository)
         unfollowUser(followRepository)
+
+        //Post routes
+        createPostRoute(postRepository)
     }
 }

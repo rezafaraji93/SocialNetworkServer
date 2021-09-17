@@ -2,6 +2,8 @@ package faraji.ir.di
 
 import faraji.ir.data.repository.follow.FollowRepository
 import faraji.ir.data.repository.follow.FollowRepositoryImpl
+import faraji.ir.data.repository.post.PostRepository
+import faraji.ir.data.repository.post.PostRepositoryImpl
 import faraji.ir.data.repository.user.UserRepository
 import faraji.ir.data.repository.user.UserRepositoryImpl
 import faraji.ir.util.Constants.DATABASE_NAME
@@ -22,5 +24,9 @@ val mainModule = module {
 
     single<FollowRepository> {
         FollowRepositoryImpl(get())
+    }
+
+    single<PostRepository> {
+        PostRepositoryImpl(get())
     }
 }
