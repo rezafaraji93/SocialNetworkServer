@@ -1,48 +1,124 @@
 package faraji.ir.routes
 
-import faraji.ir.data.models.Post
-import faraji.ir.data.repository.post.PostRepository
+import com.google.gson.Gson
 import faraji.ir.data.requests.CreatePostRequest
+import faraji.ir.data.requests.DeletePostRequest
 import faraji.ir.responses.BasicApiResponse
-import faraji.ir.util.ApiResponseMessages.USER_NOT_FOUND
+import faraji.ir.service.CommentService
+import faraji.ir.service.LikeService
+import faraji.ir.service.PostService
+import faraji.ir.util.Constants
+import faraji.ir.util.QueryParams
+import faraji.ir.util.save
+import faraji.ir.util.userId
 import io.ktor.application.*
+import io.ktor.auth.*
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
+import org.koin.ktor.ext.inject
+import java.io.File
 
-fun Route.createPostRoute(postRepository: PostRepository) {
-    post("/api/post/create") {
-        val request = call.receiveOrNull<CreatePostRequest>() ?: kotlin.run {
-            call.respond(HttpStatusCode.BadRequest)
-            return@post
-        }
+fun Route.createPostRoute(
+    postService: PostService
+) {
+    val gson by inject<Gson>()
+    authenticate {
+        post("/api/post/create") {
 
-        val didUserExist = postRepository.createPostIfUserExists(
-            Post(
-                imageUrl = "",
-                userId = request.userId,
-                timestamp = System.currentTimeMillis(),
-                description = request.description
-            )
-        )
+            val multipart = call.receiveMultipart()
+            var createPostRequest: CreatePostRequest? = null
+            var fileName: String? = null
+            multipart.forEachPart { partData ->
+                when (partData) {
+                    is PartData.FormItem -> {
+                        if (partData.name == "post_data") {
+                            createPostRequest = gson.fromJson(
+                                partData.value,
+                                CreatePostRequest::class.java
+                            )
+                        }
+                    }
+                    is PartData.FileItem -> {
+                        fileName = partData.save(Constants.POST_PICTURE_PATH)
+                    }
+                    is PartData.BinaryItem -> Unit
+                }
+            }
 
-        if (!didUserExist) {
-            call.respond(
-                HttpStatusCode.OK,
-                BasicApiResponse(
-                    successful = false,
-                    message = USER_NOT_FOUND
+            val postPictureUrl = "${Constants.BASE_URL}post_pictures/$fileName"
+
+            createPostRequest?.let { request ->
+                val createPostAcknowledged = postService.createPost(
+                    request = request,
+                    userId = call.userId,
+                    imageUrl = postPictureUrl,
                 )
-            )
-        } else {
-            call.respond(
-                HttpStatusCode.OK,
-                BasicApiResponse(
-                    successful = true
-                )
-            )
+                if (createPostAcknowledged) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        BasicApiResponse<Unit>(
+                            successful = true
+                        )
+                    )
+                } else {
+                    File("${Constants.POST_PICTURE_PATH}/$fileName").delete()
+                    call.respond(HttpStatusCode.InternalServerError)
+                }
+            } ?: kotlin.run {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
         }
-
     }
 }
+
+fun Route.getPostsForFollows(
+    postService: PostService
+) {
+    authenticate {
+        get("api/post/get") {
+            val page = call.parameters[QueryParams.PARAM_PAGE]?.toIntOrNull() ?: 0
+            val pageSize =
+                call.parameters[QueryParams.PARAM_PAGE_SIZE]?.toIntOrNull() ?: Constants.DEFAULT_POST_PAGE_SIZE
+
+            val posts = postService.getPostsForFollows(call.userId, page, pageSize)
+            call.respond(
+                HttpStatusCode.OK,
+                posts
+            )
+        }
+    }
+}
+
+fun Route.deletePost(
+    postService: PostService,
+    likeService: LikeService,
+    commentService: CommentService
+) {
+    authenticate {
+        delete("/api/post/delete") {
+            val request = call.receiveOrNull<DeletePostRequest>() ?: kotlin.run {
+                call.respond(HttpStatusCode.BadRequest)
+                return@delete
+            }
+
+            val post = postService.getPost(request.postId)
+            if (post == null) {
+                call.respond(HttpStatusCode.NotFound)
+                return@delete
+            }
+            if (post.userId == call.userId) {
+                postService.deletePost(request.postId)
+                likeService.deleteLikesForParent(request.postId)
+                commentService.deleteCommentsFromPost(request.postId)
+                call.respond(HttpStatusCode.OK)
+            } else {
+                call.respond(HttpStatusCode.Unauthorized)
+            }
+        }
+    }
+}
+

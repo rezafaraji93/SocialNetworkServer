@@ -1,5 +1,6 @@
 package faraji.ir.routes
 
+import faraji.ir.data.models.Activity
 import faraji.ir.data.repository.follow.FollowRepository
 import io.ktor.application.*
 import io.ktor.http.*
@@ -7,70 +8,86 @@ import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import faraji.ir.data.requests.FollowUpdateRequest
+import faraji.ir.data.util.ActivityType
+import faraji.ir.data.util.ParentType
 import faraji.ir.responses.BasicApiResponse
+import faraji.ir.service.ActivityService
+import faraji.ir.service.FollowService
 import faraji.ir.util.ApiResponseMessages.USER_NOT_FOUND
+import faraji.ir.util.userId
+import io.ktor.auth.*
 
-fun Route.followUser(followRepository: FollowRepository) {
+fun Route.followUser(
+    followService: FollowService,
+    activityService: ActivityService
+) {
+    authenticate {
+        post("/api/following/follow") {
+            val request = call.receiveOrNull<FollowUpdateRequest>() ?: kotlin.run {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
 
-    post("/api/following/follow") {
-        val request = call.receiveOrNull<FollowUpdateRequest>() ?: kotlin.run {
-            call.respond(HttpStatusCode.BadRequest)
-            return@post
-        }
-
-        val didUserExist = followRepository.followUserIfExists(
-            request.followingUserId,
-            request.followedUserId
-        )
-        if (didUserExist) {
-            call.respond(
-                HttpStatusCode.OK,
-                BasicApiResponse(
-                    successful = true
+            val userId = call.userId
+            if (followService.followUserIfExists(request, userId)) {
+                activityService.createActivity(
+                    Activity(
+                        timestamp = System.currentTimeMillis(),
+                        byUserId = userId,
+                        toUserId = request.followedUserId,
+                        type = ActivityType.FollowedUser.type,
+                        parentId = ""
+                    )
                 )
-            )
-        } else {
-            call.respond(
-                HttpStatusCode.OK,
-                BasicApiResponse(
-                    successful = false,
-                    message = USER_NOT_FOUND
+                call.respond(
+                    HttpStatusCode.OK,
+                    BasicApiResponse<Unit>(
+                        successful = true
+                    )
                 )
-            )
+            } else {
+                call.respond(
+                    HttpStatusCode.OK,
+                    BasicApiResponse<Unit>(
+                        successful = false,
+                        message = USER_NOT_FOUND
+                    )
+                )
+            }
         }
     }
+
 }
 
-fun Route.unfollowUser(followRepository: FollowRepository) {
+fun Route.unfollowUser(followService: FollowService) {
 
-    delete("/api/following/unfollow") {
+    authenticate {
+        delete("/api/following/unfollow") {
 
-        val request = call.receiveOrNull<FollowUpdateRequest>() ?: kotlin.run {
-            call.respond(HttpStatusCode.BadRequest)
-            return@delete
-        }
+            val request = call.receiveOrNull<FollowUpdateRequest>() ?: kotlin.run {
+                call.respond(HttpStatusCode.BadRequest)
+                return@delete
+            }
 
-        val didUserExist = followRepository.unfollowUserIfExists(
-            request.followingUserId,
-            request.followedUserId
-        )
-
-        if (didUserExist) {
-            call.respond(
-                HttpStatusCode.OK,
-                BasicApiResponse(
-                    successful = true,
+            val userId = call.userId
+            if (followService.unfollowIfUserExists(request, userId)) {
+                call.respond(
+                    HttpStatusCode.OK,
+                    BasicApiResponse<Unit>(
+                        successful = true,
+                    )
                 )
-            )
-        } else {
-            call.respond(
-                HttpStatusCode.OK,
-                BasicApiResponse(
-                    successful = false,
-                    message = USER_NOT_FOUND
+            } else {
+                call.respond(
+                    HttpStatusCode.OK,
+                    BasicApiResponse<Unit>(
+                        successful = false,
+                        message = USER_NOT_FOUND
+                    )
                 )
-            )
-        }
+            }
 
+        }
     }
+
 }

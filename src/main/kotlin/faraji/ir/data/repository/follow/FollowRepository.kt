@@ -1,5 +1,7 @@
 package faraji.ir.data.repository.follow
 
+import faraji.ir.data.models.Following
+
 interface FollowRepository {
 
     suspend fun followUserIfExists(
@@ -11,5 +13,14 @@ interface FollowRepository {
         followingUserId: String,
         followedUserId: String
     ): Boolean
+
+    suspend fun getFollowsByUser(userId: String) : List<Following>
+
+    suspend fun doesUserFollow(
+        followingUserId: String,
+        followedUserId: String
+    ): Boolean
+
+
 
 }

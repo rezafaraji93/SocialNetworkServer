@@ -1,36 +1,65 @@
 package faraji.ir.plugins
 
-import faraji.ir.data.repository.follow.FollowRepository
-import faraji.ir.data.repository.post.PostRepository
-import faraji.ir.data.repository.user.UserRepository
 import faraji.ir.routes.*
+import faraji.ir.service.*
 import io.ktor.routing.*
-import io.ktor.http.*
-import io.ktor.content.*
-import io.ktor.http.content.*
 import io.ktor.application.*
-import io.ktor.response.*
-import io.ktor.request.*
-import org.koin.java.KoinJavaComponent.inject
+import io.ktor.http.content.*
 import org.koin.ktor.ext.inject
 
 fun Application.configureRouting() {
 
-    val userRepository: UserRepository by inject()
-    val followRepository: FollowRepository by inject()
-    val postRepository: PostRepository by inject()
+    val userService: UserService by inject()
+    val followService: FollowService by inject()
+    val postService: PostService by inject()
+    val likeService: LikeService by inject()
+    val commentService: CommentService by inject()
+    val activityService: ActivityService by inject()
 
+    val jwtIssuer = "http://0.0.0.0:8001"
+    val jwtAudience = "main"
+    val jwtSecret = "secret"
     routing {
 
         //User routes
-        createUserRoute(userRepository)
-        login(userRepository)
+        authenticate()
+        createUser(userService)
+        login(
+            userService = userService,
+            jwtIssuer = jwtIssuer,
+            jwtAudience = jwtAudience,
+            jwtSecret = jwtSecret
+        )
+        searchUser(userService)
+        getUserProfile(userService)
+        getPostForProfile(postService)
+        updateUserProfile(userService)
 
         //Following routes
-        followUser(followRepository)
-        unfollowUser(followRepository)
+        followUser(followService, activityService)
+        unfollowUser(followService)
 
         //Post routes
-        createPostRoute(postRepository)
+        createPostRoute(postService)
+        getPostsForFollows(postService)
+        deletePost(postService, likeService, commentService)
+
+        //Like routes
+        likeParent(likeService, activityService)
+        unlikeParent(likeService)
+        getLikesForParent(likeService)
+
+        //Comment routes
+        createComment(commentService, activityService)
+        getCommentsForPost(commentService)
+        deleteComment(commentService, likeService)
+
+        //Activity routes
+        getActivities(activityService)
+
+        static {
+            resources("static")
+        }
+
     }
 }

@@ -5,7 +5,7 @@ import faraji.ir.util.Constants.DEFAULT_POST_PAGE_SIZE
 
 interface PostRepository {
 
-    suspend fun createPostIfUserExists(post: Post): Boolean
+    suspend fun createPost(post: Post): Boolean
 
     suspend fun deletePost(postId: String)
 
@@ -14,4 +14,14 @@ interface PostRepository {
         page: Int = 0,
         pageSize: Int = DEFAULT_POST_PAGE_SIZE
     ): List<Post>
+
+    suspend fun getPost(postId: String): Post?
+
+    suspend fun getPostsForProfile(
+        userId: String,
+        page: Int = 0,
+        pageSize: Int = DEFAULT_POST_PAGE_SIZE
+    ): List<Post>
+
+
 }

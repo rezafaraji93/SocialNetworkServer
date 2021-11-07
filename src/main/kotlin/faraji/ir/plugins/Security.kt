@@ -14,13 +14,13 @@ fun Application.configureSecurity() {
 
     authentication {
         jwt {
-            val jwtAudience = environment.config.property("jwt.audience").getString()
-            realm = environment.config.property("jwt.realm").getString()
+            val jwtAudience = "main"
+            realm = "Social Network"
             verifier(
                     JWT
                             .require(Algorithm.HMAC256("secret"))
                             .withAudience(jwtAudience)
-                            .withIssuer(environment.config.property("jwt.domain").getString())
+                            .withIssuer("http://0.0.0.0:8001")
                             .build()
             )
             validate { credential ->
@@ -30,3 +30,6 @@ fun Application.configureSecurity() {
     }
 
 }
+
+val JWTPrincipal.userId: String?
+    get() = getClaim("userId", String::class)

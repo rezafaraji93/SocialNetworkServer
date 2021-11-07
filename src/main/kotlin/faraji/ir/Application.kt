@@ -13,11 +13,11 @@ fun main() {
         install(Koin){
             modules(mainModule)
         }
+        configureSecurity()
         configureRouting()
         configureHTTP()
         configureMonitoring()
         configureSerialization()
         configureSockets()
-//        configureSecurity()
     }.start(wait = true)
 }
